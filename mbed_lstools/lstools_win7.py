@@ -81,8 +81,9 @@ class MbedLsToolsWin7(MbedLsToolsBase):
         """ This goes through a whole new loop, but this assures that even if
             serial port (COM) is not detected, we still get the rest of info like mount point etc.
         """
-        self.winreg.Enum = self.winreg.OpenKey(self.winreg.HKEY_LOCAL_MACHINE, r'SYSTEM\CurrentControlSet\Enum')
-        usb_devs = self.winreg.OpenKey(self.winreg.Enum, 'USB')
+        enum = self.winreg.OpenKey(self.winreg.HKEY_LOCAL_MACHINE, r'SYSTEM\CurrentControlSet\Enum')
+        usb_devs = self.winreg.OpenKey(enum, 'USB')
+        self.winreg.CloseKey(enum)
 
         if self.DEBUG_FLAG:
             self.debug(self.get_mbed_com_port.__name__, 'ID: ' + id)
@@ -91,7 +92,9 @@ class MbedLsToolsWin7(MbedLsToolsBase):
         dev_keys = []
         for vid in self.iter_keys(usb_devs):
             try:
-                dev_keys += [self.winreg.OpenKey(vid, id)]
+                key = self.winreg.OpenKey(vid, id)
+                dev_keys += [key]
+                self.winreg.CloseKey(key)
             except:
                 pass
 
@@ -100,6 +103,8 @@ class MbedLsToolsWin7(MbedLsToolsBase):
             try:
                 param = self.winreg.OpenKey(key, "Device Parameters")
                 port = self.winreg.QueryValueEx(param, 'PortName')[0]
+                self.winreg.CloseKey(param)
+                self.winreg.CloseKey(port)
                 if self.DEBUG_FLAG:
                     self.debug(self.get_mbed_com_port.__name__, port)
                 return port
@@ -122,6 +127,8 @@ class MbedLsToolsWin7(MbedLsToolsBase):
                         return port
             except:
                 pass
+
+		self.winreg.CloseKey(usb_devs)
 
     def get_connected_mbeds(self):
         """ Returns [(<mbed_mount_point>, <mbed_id>), ..]
