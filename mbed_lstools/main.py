@@ -91,6 +91,12 @@ def cmd_parser_setup():
                       action="store_true",
                       help='Parser friendly verbose mode')
 
+    parser.add_option('-y', '--yotta-registry',
+                      dest='yotta_registry',
+                      default=False,
+                      action="store_true",
+                      help='Use on-line yotta registry to search for mbed-target association with connected platforms')
+
     parser.add_option('-m', '--mock',
                       dest='mock_platform',
                       help='Add locally manufacturers id and platform name. Example --mock=12B4:NEW_PLATFORM')
@@ -159,6 +165,9 @@ def mbedls_main():
 
     if not opts.skip_retarget:
         mbeds.retarget()
+
+    if opts.yotta_registry:
+        mbeds.yotta_registry = True
 
     if opts.mock_platform:
         if opts.mock_platform == '*':

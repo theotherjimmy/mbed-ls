@@ -20,6 +20,8 @@ import os
 import json
 from os import listdir
 from os.path import isfile, join
+from mbed_lstools.lstools_toolkit import mbedls_yotta_search
+
 
 class MbedLsToolsBase:
     """ Base class for mbed-lstools, defines mbed-ls tools interface for mbed-enabled devices detection for various hosts
@@ -30,7 +32,8 @@ class MbedLsToolsBase:
         #extra flags
         self.DEBUG_FLAG = False     # Used to enable debug code / prints
         self.ERRORLEVEL_FLAG = 0    # Used to return success code to environment
-        self.retarget_data = {}          # Used to retarget mbed-enabled platform properties
+        self.retarget_data = {}     # Used to retarget mbed-enabled platform properties
+        self.yotta_registry = False # Use yotta registry to fetch additional platform information
 
         # If there is a local mocking data use it and add / override manufacture_ids
         mock_ids = self.mock_read()
@@ -319,6 +322,12 @@ class MbedLsToolsBase:
                     field_name = 'daplink_' + field.lower().replace(' ', '_')
                     if field_name not in mbeds[i]:
                         mbeds[i][field_name] = mbed_htm[field]
+
+            # Use yotta registry if possible to get extra information
+            # regarding connected platforms
+            if self.yotta_registry:
+                target_list = mbedls_yotta_search(platform_name)
+                mbeds[i]['yotta_target'] = target_list
 
             if self.DEBUG_FLAG:
                 self.debug(self.list_mbeds_ext.__name__, (mbeds[i]['platform_name_unique'], val['target_id']))
