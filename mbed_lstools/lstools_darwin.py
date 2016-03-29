@@ -116,12 +116,11 @@ class MbedLsToolsDarwin(MbedLsToolsBase):
         for usb_controller in usb_controllers:	
             ioreg_usb = subprocess.Popen(['ioreg', '-a', '-r', '-n', usb_controller, '-l'], stdout=subprocess.PIPE)
             
-	    try:
+        try:
                 usb_bus = usb_bus + plistlib.readPlist(ioreg_usb.stdout)
-	    except:
-		# Catch when no output is returned from ioreg command
-                pass
-
+        except:
+            # Catch when no output is returned from ioreg command
+            pass
             ioreg_usb.wait()
 
         r = {}
