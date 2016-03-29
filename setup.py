@@ -30,7 +30,7 @@ OWNER_EMAILS = 'Przemyslaw.Wirkus@arm.com, Johan.Seferidis@arm.com, James.Crosby
 
 # Utility function to cat in a file (used for the README)
 def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname), encoding='utf8').read()
+    return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(name='mbed-ls',
       version='0.2.1',
