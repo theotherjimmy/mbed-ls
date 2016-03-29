@@ -284,7 +284,7 @@ lrwxrwxrwx root  10 Dec  3 09:10 wwn-0x5000cca30ccffb77-part5 -> ../../sda5
 
 ***Note:*** ```mbed-ls``` tools pair only serial ports and mount points (not CMSIS-DAP - yet).
 
-We can see that on our host machine (running Ubuntu) there are many 'disk type' devices visible under ```/dev/disk```. The mbed boards can be distinguished and filtered by their unique ```USB-ID``` conventions. In our case, we can see pairs of ```usb-ids``` in both ```/dev/serial/usb-id``` and ```/dev/disk/usb-id``` with embedded ``` TargetID```.  ```TargetID``` can be filtered out, for example using this sudo-regexpr: ```(“MBED”|”mbed”|”STMicro”)_([a-zA-z_-]+)_([a-fA_F0-0]){4,}```
+We can see that on our host machine (running Ubuntu) there are many 'disk type' devices visible under ```/dev/disk```. The mbed boards can be distinguished and filtered by their unique ```USB-ID``` conventions. In our case, we can see pairs of ```usb-ids``` in both ```/dev/serial/usb-id``` and ```/dev/disk/usb-id``` with embedded ``` TargetID```.  ```TargetID``` can be filtered out, for example using this sudo-regexpr: ```("MBED"|"mbed"|"STMicro")_([a-zA-z_-]+)_([a-fA_F0-0]){4,}```
 
 For example, we can match the board 066EFF525257775087141721 by connecting a few dots:
 
@@ -297,7 +297,7 @@ From this we know that the target platform has these properties:
 * The serial port is ```ttyACM2```.
 * The mount point is ```sdd```.
 
-Your ```mbed-ls``` implementation resolves those three and creates a “tuple” with those values (for each connected device). Using this tuple(s), ```mbed-ls``` will convert the platform number to a human-readable name etc.
+Your ```mbed-ls``` implementation resolves those three and creates a "tuple" with those values (for each connected device). Using this tuple(s), ```mbed-ls``` will convert the platform number to a human-readable name etc.
 
 Note that for some boards the ```TargetID``` format is proprietary (see STMicro boards) and ```usb-id``` does not have a valid TargetID where the four first letters are the target platform's unique ID. In that case, ```mbed-ls``` tools inspects the ```mbed.htm``` file on the mbed mounted disk to get the proper TargetID from the URL in the ```meta``` part of the HTML header.
 
