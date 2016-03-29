@@ -20,7 +20,7 @@ import os
 import sys
 import string
 
-from lstools_base import MbedLsToolsBase
+from .lstools_base import MbedLsToolsBase
 
 
 class MbedLsToolsWin7(MbedLsToolsBase):
@@ -32,6 +32,7 @@ class MbedLsToolsWin7(MbedLsToolsBase):
         MbedLsToolsBase.__init__(self)
         self.os_supported.append('Windows7')
         if sys.version_info[0] < 3:
+            # Python version 2.x
             import _winreg as winreg
         else:
             import winreg
@@ -202,4 +203,4 @@ class MbedLsToolsWin7(MbedLsToolsBase):
     def regbin2str(self, regbin):
         """! Decode registry binary to readable string
         """
-        return filter(lambda ch: ch in string.printable, regbin)
+        return [ch for ch in regbin if ch in string.printable]

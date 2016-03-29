@@ -19,7 +19,7 @@ import re
 import subprocess
 import plistlib
 
-from lstools_base import MbedLsToolsBase
+from .lstools_base import MbedLsToolsBase
 
 class MbedLsToolsDarwin(MbedLsToolsBase):
     """ MbedLsToolsDarwin supports mbed-enabled platforms detection on Mac OS X

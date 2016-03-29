@@ -18,7 +18,7 @@ limitations under the License.
 import re
 import subprocess
 
-from lstools_base import MbedLsToolsBase
+from .lstools_base import MbedLsToolsBase
 
 
 class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
@@ -219,8 +219,8 @@ class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
         result = []
 
         # Search if we have
-        for dhi in disk_hex_ids.keys():
-            for mttm in map_tid_to_mbed.keys():
+        for dhi in list(disk_hex_ids.keys()):
+            for mttm in list(map_tid_to_mbed.keys()):
                 if dhi.startswith(mttm):
                     mbed_name = map_tid_to_mbed[mttm]
                     mbed_dev_disk = ""
@@ -252,7 +252,7 @@ class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
         for disk in disk_hex_ids:
             if "mbed" in disk_hex_ids[disk].lower():
                 orphan_found = True
-                for tid in map_tid_to_mbed.keys():
+                for tid in list(map_tid_to_mbed.keys()):
                     if disk.startswith(tid):
                         orphan_found = False
                         break

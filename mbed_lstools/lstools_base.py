@@ -378,7 +378,7 @@ class MbedLsToolsBase:
         @param text Text to be included in error message
         @details Function prints directly on console
         """
-        print 'error: %s'% text
+        print('error: %s'% text)
 
     def debug(self, name, text):
         """! Prints error messages
@@ -386,7 +386,7 @@ class MbedLsToolsBase:
         @param text Text to be included in debug message
         @details Function prints directly on console
         """
-        print 'debug @%s.%s: %s'% (self.__class__.__name__, name, text)
+        print('debug @%s.%s: %s'% (self.__class__.__name__, name, text))
 
     def __str__(self):
         """! Object to string casting
@@ -437,10 +437,10 @@ class MbedLsToolsBase:
                 except ValueError as json_error_msg:
                     result = None
                     if verbose:
-                        print "Error parsing file(%s): %s" % (json_spec_filename, json_error_msg)
+                        print("Error parsing file(%s): %s" % (json_spec_filename, json_error_msg))
         except IOError as fileopen_error_msg:
             if verbose:
-                print "Warning: %s" % (fileopen_error_msg)
+                print("Warning: %s" % (fileopen_error_msg))
         return result
 
     def get_mbed_htm_target_id(self, mount_point):
