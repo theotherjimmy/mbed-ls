@@ -1,40 +1,29 @@
-"""
-mbed SDK
-Copyright (c) 2011-2015 ARM Limited
+import os
+import sys
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+sys.path.insert(0, ROOT)
 
-    http://www.apache.org/licenses/LICENSE-2.0
+from mbed_provider import MbedProvider
+from mbed_ls_utils import run_cli_process
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
-
+import string
 import re
+import logging
 
-from .lstools_base import MbedLsToolsBase
+class MbedProviderLinux(MbedProvider):
+    HEX_UUID_PATTERN_STRIGN = "usb-[0-9a-zA-Z_-]*_([0-9a-zA-Z]*)-.*"
+    # Since Ubuntu 15 DAplink serial port device can have pci- prefix, not only usb- one
+    NAME_LINK_PATTERN_STRING = '((%s)-[0-9a-zA-Z_-]*_[0-9a-zA-Z]*-.*$)'% ('|'.join(["pci", "usb"]))
+    DISK_STRINGS = ['mbed', 'segger']
 
-
-class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
-    """ MbedLsToolsLinuxGeneric supports mbed-enabled platforms detection across Linux family
-    """
     def __init__(self, **kwargs):
         """! ctor
         """
-        MbedLsToolsBase.__init__(self, **kwargs)
-        self.os_supported.append('LinuxGeneric')
-        self.hex_uuid_pattern = "usb-[0-9a-zA-Z_-]*_([0-9a-zA-Z]*)-.*"
-        # Since Ubuntu 15 DAplink serial port device can have pci- prefix, not only usb- one
-        self.name_link_pattern = '((%s)-[0-9a-zA-Z_-]*_[0-9a-zA-Z]*-.*$)'% ('|'.join(["pci", "usb"]))
-        self.mount_media_pattern = "^/[a-zA-Z0-9/]* on (/[a-zA-Z0-9/]*) "
+        self.logger = logging.getLogger(__name__)
 
-        self.nlp = re.compile(self.name_link_pattern)
-        self.hup = re.compile(self.hex_uuid_pattern)
+        self.name_link_pattern = re.compile(self.NAME_LINK_PATTERN_STRING)
+        self.hex_uuid_pattern = re.compile(self.HEX_UUID_PATTERN_STRIGN)
 
     def list_mbeds(self):
         """! Returns detailed list of connected mbeds
@@ -52,7 +41,6 @@ class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
             ['*not detected', 'sdc', '/media/usb1', '/dev/ttyACM1', 'usb-MBED_microcontroller_066AFF494956805087155327-0:0 -> ../../sdc'],
             ['*not detected', 'sde', '/media/usb2', '/dev/ttyACM3', 'usb-MBED_microcontroller_066CFF534951775087112139-0:0 -> ../../sde']
         ]
-
         MBED format
         {
             'mount_point' : <>,
@@ -60,7 +48,6 @@ class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
             'target_id' : <>,
             'platform_name' : <>,
         }
-
         TIDS format
         {
             "1168": "LPC11U68",
@@ -77,44 +64,23 @@ class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
         serial_ids = self.get_dev_by_id('serial')
         mount_ids = self.get_mounts()
 
-        # Extra data to identify mbeds by target_id
-        tids = self.manufacture_ids
-
         # Listing known and undetected / orphan devices
-        mbeds = self.get_detected(tids, disk_ids, serial_ids, mount_ids)
-        orphans = self.get_not_detected(tids, disk_ids, serial_ids, mount_ids)
-        all_devices = mbeds + orphans
-
+        all_devices = self.get_detected(disk_ids, serial_ids, mount_ids)
         self.ERRORLEVEL_FLAG = 0
 
-        result = []
+        result = {}
         tidpattern = re.compile(r'_([0-9a-zA-Z]+)-\d+:\d+')
         for device in all_devices:
             tid = None
-            m = tidpattern.search(device[4])
+            m = tidpattern.search(device[3])
             if m and len(m.groups()):
                 tid = m.group(1)
-            mbed = {'mount_point' : device[2],
-                    'serial_port' : device[3],
+
+            result[tid] = {'mount_point' : device[1],
+                    'serial_port' : device[2],
                     'target_id' : tid,
-                    'platform_name' : device[0]
+                    'target_id_usb_id' : tid,
             }
-
-            # Deducing mbed-enabled TargetID based on available targetID definition DB.
-            # If TargetID from USBID is not recognized we will try to check URL in mbed.htm
-            mbed_htm_target_id = self.get_mbed_htm_target_id(device[2]) # device[2] is a 'mount_point'
-            if mbed_htm_target_id is not None:
-                mbed_htm_target_id_prefix = mbed_htm_target_id[0:4]
-                if mbed_htm_target_id_prefix in tids:
-                    # We need to update platform_name and corresponding TargetID (not USBID, but from mbed.htm)
-                    mbed['platform_name'] = tids[mbed_htm_target_id_prefix]
-                    mbed['target_id'] = mbed_htm_target_id
-            mbed['target_id_usb_id'] = tid
-            mbed['target_id_mbed_htm'] = mbed_htm_target_id
-            result.append(mbed)
-
-            if None in mbed:
-                self.ERRORLEVEL_FLAG = -1
 
         return result
 
@@ -126,7 +92,7 @@ class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
         @return tuple(stdout lines, retcode)
         """
         cmd = 'ls -oA /dev/' + subdir + '/by-id/'
-        _stdout, _, retval = self.run_cli_process(cmd)
+        _stdout, _, retval = run_cli_process(cmd)
         return (_stdout.splitlines(), retval)
 
     def get_dev_by_id_process(self, lines, retval):
@@ -140,7 +106,7 @@ class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
                     line = line.decode('utf8')
                 if not line.lower().startswith('total '):    # total 0
                     result.append(line)
-                    self.debug(self.get_dev_by_id_process.__name__, line)
+                    self.logger.debug(line)
         return result
 
     def get_dev_by_id(self, subdir):
@@ -158,15 +124,15 @@ class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
         result = []
         cmd = 'mount | grep vfat'
 
-        self.debug(self.get_mounts.__name__, cmd)
+        self.logger.debug(cmd)
 
-        _stdout, _, retval = self.run_cli_process(cmd)
+        _stdout, _, retval = run_cli_process(cmd)
 
         if not retval:
             for line in _stdout.splitlines():
                 line = line.rstrip()
                 result.append(line)
-                self.debug(self.get_mounts.__name__, line)
+                self.logger.debug(line)
         return result
 
     def get_disk_hex_ids(self, disk_list):
@@ -177,10 +143,10 @@ class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
         """
         disk_hex_ids = {}
         for dl in disk_list:
-            m = self.nlp.search(dl)
+            m = self.name_link_pattern.search(dl)
             if m and len(m.groups()):
                 disk_link = m.group(1)
-                m = self.hup.search(disk_link)
+                m = self.hex_uuid_pattern.search(disk_link)
                 if m and len(m.groups()):
                     disk_hex_ids[m.group(1)] = disk_link
         return disk_hex_ids
@@ -194,16 +160,15 @@ class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
         """
         for sl in serial_list:
             if dhi in sl:
-                m = self.nlp.search(sl)
+                m = self.name_link_pattern.search(sl)
                 if m and len(m.groups()):
                     serial_link = m.group(1)
                     mbed_dev_serial = "/dev/" + self.get_dev_name(serial_link)
                     return mbed_dev_serial
         return None
 
-    def get_detected(self, tids, disk_list, serial_list, mount_list):
+    def get_detected(self, disk_list, serial_list, mount_list):
         """! Find all known mbed devices and assign name by targetID
-        @param tids TargetID comprehensive list for detection (manufacturers_ids)
         @param disk_list List of disks (mount points in /dev/disk)
         @param serial_list List of serial devices (serial ports in /dev/serial)
         @param mount_list List of lines from 'mount' command
@@ -211,68 +176,37 @@ class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
         @details Find for all disk connected all MBED ones we know about from TID list
         """
         # Find for all disk connected all MBED ones we know about from TID list
-        disk_hex_ids = self.get_disk_hex_ids(disk_list)
-        map_tid_to_mbed = self.get_tid_mbed_name_remap(tids)
+        valid_disks = []
 
+        for disk in disk_list:
+            valid_disk_found = False
+            for disk_string in self.DISK_STRINGS:
+                if disk_string in disk.lower():
+                    valid_disks.append(disk)
+                    valid_disk = True
+                    break
+
+            if valid_disk_found:
+                break
+
+        disk_hex_ids = self.get_disk_hex_ids(valid_disks)
+        self.logger.debug('disk_hex_ids:' + str(disk_hex_ids))
         result = []
 
         # Search if we have
         for dhi in disk_hex_ids.keys():
-            for mttm in map_tid_to_mbed.keys():
-                if dhi.startswith(mttm):
-                    mbed_name = map_tid_to_mbed[mttm]
-                    mbed_dev_disk = ""
-                    mbed_dev_serial = ""
+            mbed_dev_disk = ""
+            mbed_dev_serial = ""
 
-                    disk_link = disk_hex_ids[dhi]
-                    # print "Fount MBED disk: " + disk_link #mbed_name + ": " + mttm + " (" + dhi + ")"
-                    mbed_dev_disk = self.get_dev_name(disk_link) # m.group(1) if m and len(m.groups()) else "unknown"
-                    mbed_dev_serial = self.get_mbed_serial(serial_list, dhi)
-                    # Print detected device
-                    mbed_mount_point = self.get_mount_point(mbed_dev_disk, mount_list)
-                    if mbed_mount_point:
-                        result.append([mbed_name, mbed_dev_disk, mbed_mount_point, mbed_dev_serial, disk_hex_ids[dhi]])
+            disk_link = disk_hex_ids[dhi]
+            # print "Fount MBED disk: " + disk_link #mbed_name + ": " + mttm + " (" + dhi + ")"
+            mbed_dev_disk = self.get_dev_name(disk_link) # m.group(1) if m and len(m.groups()) else "unknown"
+            mbed_dev_serial = self.get_mbed_serial(serial_list, dhi)
+            # Print detected device
+            mbed_mount_point = self.get_mount_point(mbed_dev_disk, mount_list)
+            if mbed_mount_point:
+                result.append([mbed_dev_disk, mbed_mount_point, mbed_dev_serial, disk_hex_ids[dhi]])
         return result
-
-    def get_not_detected(self, tids, disk_list, serial_list, mount_list):
-        """! Find all unknown mbed-enabled devices (may have 'mbed' string in USBID name)
-        @param tids TargetID comprehensive list for detection (manufacturers_ids)
-        @param disk_list List of disks (mount points in /dev/disk)
-        @param serial_list List of serial devices (serial ports in /dev/serial)
-        @param mount_list List of lines from 'mount' command
-        @return list of lists [mbed_name, mbed_dev_disk, mbed_mount_point, mbed_dev_serial, disk_hex_id]
-        @details Find for all disk connected all MBED ones we know about from TID list
-        """
-        disk_hex_ids = self.get_disk_hex_ids(disk_list)
-
-        map_tid_to_mbed = self.get_tid_mbed_name_remap(tids)
-        orphan_mbeds = {}
-        for disk in disk_hex_ids:
-            if "mbed" in disk_hex_ids[disk].lower():
-                orphan_found = True
-                for tid in map_tid_to_mbed.keys():
-                    if disk.startswith(tid):
-                        orphan_found = False
-                        break
-                if orphan_found:
-                    orphan_mbeds[disk] = disk_hex_ids[disk]
-
-        # Search for corresponding MBED serial
-        result = []
-        # Find orphan serial name
-        for dhi in orphan_mbeds:
-            orphan_serial = self.get_mbed_serial(serial_list, dhi)
-            orphan_dev_disk = self.get_dev_name(disk_hex_ids[dhi])
-            orphan_dev_serial = '/dev/' + self.get_dev_name(orphan_serial) if orphan_serial else None
-            orphan_mount_point = self.get_mount_point(orphan_dev_disk, mount_list)
-            if orphan_mount_point:
-                result.append([None, orphan_dev_disk, orphan_mount_point, orphan_dev_serial, disk_hex_ids[dhi]])
-        return result
-
-    def get_tid_mbed_name_remap(self, tids):
-        """! Remap to get mapping:  ID -> mbed name
-        """
-        return tids
 
     def get_dev_name(self, link):
         """! Get device name from symbolic link list

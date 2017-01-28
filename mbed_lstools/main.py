@@ -17,68 +17,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
 import sys
 import json
 import optparse
-import platform
+import logging
 
-from .lstools_win7 import MbedLsToolsWin7
-from .lstools_ubuntu import MbedLsToolsUbuntu
-from .lstools_linux_generic import MbedLsToolsLinuxGeneric
-from .lstools_darwin import MbedLsToolsDarwin
-
+from mbed_lstool import MbedLsTool
+from mbed_ls_utils import get_os_name
 
 def create(**kwargs):
     """! Factory used to create host OS specific mbed-lstools object
 
-    :param kwargs: To pass arguments transparently to MbedLsToolsBase class.
-    @return Returns MbedLsTools object or None if host OS is not supported
+    :param kwargs: To pass arguments transparently to MbedLsToolBase class.
+    @return Returns MbedLsTool object or None if host OS is not supported
 
     @details Function detects host OS. Each host platform should be ported to support new host platform (OS)
     """
-    result = None
-    mbed_os = mbed_os_support()
-    if mbed_os is not None:
-        if mbed_os == 'Windows7': result = MbedLsToolsWin7(**kwargs)
-        elif mbed_os == 'Ubuntu': result = MbedLsToolsUbuntu(**kwargs)
-        elif mbed_os == 'LinuxGeneric': result = MbedLsToolsLinuxGeneric(**kwargs)
-        elif mbed_os == 'Darwin': result = MbedLsToolsDarwin(**kwargs)
-    return result
-
-
-def mbed_os_support():
-    """! Function used to determine if host OS is supported by mbed-lstools
-
-    @return Returns None if host OS is not supported else return OS short name
-
-    @details This function should be ported for new OS support
-    """
-    result = None
-    os_info = mbed_lstools_os_info()
-    if (os_info[0] == 'nt' and os_info[1] == 'Windows'):
-        result = 'Windows7'
-    elif (os_info[0] == 'posix' and os_info[1] == 'Linux' and ('Ubuntu' in os_info[3])):
-        result = 'Ubuntu'
-    elif (os_info[0] == 'posix' and os_info[1] == 'Linux'):
-        result = 'LinuxGeneric'
-    elif (os_info[0] == 'posix' and os_info[1] == 'Darwin'):
-        result = 'Darwin'
-    return result
-
-
-def mbed_lstools_os_info():
-    """! Returns information about host OS
-
-    @return Returns tuple with information about OS and host platform
-    """
-    result = (os.name,
-              platform.system(),
-              platform.release(),
-              platform.version(),
-              sys.platform)
-    return result
-
+    return MbedLsTool(**kwargs)
 
 def cmd_parser_setup():
     """! Configure CLI (Command Line OPtions) options
@@ -115,19 +70,19 @@ def cmd_parser_setup():
                       dest='json_by_target_id',
                       default=False,
                       action="store_true",
-                      help='JSON formatted dictionary ordered by TargetID of targets detailed information')
+                      help='(DEPRECATED) JSON formatted dictionary ordered by TargetID of targets detailed information')
 
     parser.add_option('-p', '--json-platforms',
                       dest='json_platforms',
                       default=False,
                       action="store_true",
-                      help='JSON formatted list of available platforms')
+                      help='(DEPRECATED) JSON formatted list of available platforms')
 
     parser.add_option('-P', '--json-platforms-ext',
                       dest='json_platforms_ext',
                       default=False,
                       action="store_true",
-                      help='JSON formatted dictionary of platforms count')
+                      help='(DEPRECATED) JSON formatted dictionary of platforms count')
 
     parser.add_option('', '--skip-retarget',
                       dest='skip_retarget',
@@ -164,59 +119,71 @@ def mbedls_main():
         return version
 
     (opts, args) = cmd_parser_setup()
+    
+    log_level = logging.WARNING
+    
+    if opts.debug:
+        log_level = logging.DEBUG
+    
+    logging.basicConfig(level=log_level)
+    logging.debug("mbed-ls ver. " + get_mbedls_version())
+    logging.debug("host: " + get_os_name())
+    
     mbeds = create(skip_retarget=opts.skip_retarget)
 
     if mbeds is None:
-        sys.stderr.write('This platform is not supported! Pull requests welcome at github.com/ARMmbed/mbed-ls\n')
+        logging.error('This platform is not supported! Pull requests welcome at github.com/ARMmbed/mbed-ls\n')
         sys.exit(-1)
-
-    mbeds.DEBUG_FLAG = opts.debug
-    mbeds.debug(__name__, "mbed-ls ver. " + get_mbedls_version())
-    mbeds.debug(__name__, "host: " +  str((mbed_lstools_os_info())))
 
     if opts.list_platforms:
         print(mbeds.list_manufacture_ids())
         sys.exit(0)
 
     if opts.mock_platform:
-        if opts.mock_platform == '*':
+        if opts.mock_platform == '*' and opts.json:
+            print(json.dumps(mbeds.get_mocked_platforms(), indent=4))
+        else:
+            for token in opts.mock_platform.split(','):
+                if ':' in token:
+                    oper = '+' # Default
+                    mid, platform_name = token.split(':')
+                    if mid and mid[0] in ['+', '-']:
+                        oper = mid[0]   # Operation (character)
+                        mid = mid[1:]   # We remove operation character
+                    
+                    if oper == '+':
+                        mbeds.global_mock_manager.add_platform(mid, platform_name)
+                    else:
+                        mbeds.global_mock_manager.remove_platform(mid)
+                elif token and token[0] in ['-', '!']:
+                    # Operations where do not specify data after colon: --mock=-1234,-7678
+                    oper = token[0]
+                    mid = token[1:]
+                    if oper == '+':
+                        mbeds.global_mock_manager.add_platform(mid, 'dummy')
+                    else:
+                        mbeds.global_mock_manager.remove_platform(mid)
             if opts.json:
-                print(json.dumps(mbeds.mock_read(), indent=4))
-
-        for token in opts.mock_platform.split(','):
-            if ':' in token:
-                oper = '+' # Default
-                mid, platform_name = token.split(':')
-                if mid and mid[0] in ['+', '-']:
-                    oper = mid[0]   # Operation (character)
-                    mid = mid[1:]   # We remove operation character
-                mbeds.mock_manufacture_ids(mid, platform_name, oper=oper)
-            elif token and token[0] in ['-', '!']:
-                # Operations where do not specify data after colon: --mock=-1234,-7678
-                oper = token[0]
-                mid = token[1:]
-                mbeds.mock_manufacture_ids(mid, 'dummy', oper=oper)
-        if opts.json:
-            print(json.dumps(mbeds.mock_read(), indent=4))
+                print(json.dumps(mbeds.get_mocked_platforms(), indent=4))
 
     elif opts.json:
         print(json.dumps(mbeds.list_mbeds_ext(), indent=4, sort_keys=True))
 
     elif opts.json_by_target_id:
         print(json.dumps(mbeds.list_mbeds_by_targetid(), indent=4, sort_keys=True))
-
+    
+    elif opts.version:
+        print(get_mbedls_version())
+    
     elif opts.json_platforms:
         print(json.dumps(mbeds.list_platforms(), indent=4, sort_keys=True))
 
     elif opts.json_platforms_ext:
         print(json.dumps(mbeds.list_platforms_ext(), indent=4, sort_keys=True))
-
-    elif opts.version:
-        print(get_mbedls_version())
-
     else:
         print(mbeds.get_string(border=not opts.simple, header=not opts.simple))
 
-    mbeds.debug(__name__, "Return code: %d" % mbeds.ERRORLEVEL_FLAG)
-
-    sys.exit(mbeds.ERRORLEVEL_FLAG)
+    # TODO replace with actual return code
+    return_code = 0
+    logging.debug("Return code: %d" % return_code)
+    sys.exit(return_code)

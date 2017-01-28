@@ -6,6 +6,8 @@ __pycache__/
 .mbedls-mock
 mbedls.json
 
+*.lockfile
+
 # C extensions
 *.so
 
