@@ -24,15 +24,18 @@ from io import open
 import json
 from os import listdir
 from os.path import isfile, join, exists, isdir
-import logging
 from abc import ABCMeta, abstractmethod
 
 from .platform_database import PlatformDatabase, LOCAL_PLATFORM_DATABASE, \
     LOCAL_MOCKS_DATABASE
+
+import logging
 mbedls_root_logger = logging.getLogger("mbedls")
 mbedls_root_logger.setLevel(logging.WARNING)
 
 logger = logging.getLogger("mbedls.lstools_base")
+del logging
+
 
 def deprecated(reason):
     """Deprecate a function/method with a decorator"""
@@ -206,11 +209,11 @@ class MbedLsToolsBase(object):
             device.update({"daplink_%s" % f.lower().replace(' ', '_'): v
                            for f, v in daplink_info.items()})
         if htm_target_id:
-            logging.debug("Found htm target id, %s, for usb target id %s",
+            logger.debug("Found htm target id, %s, for usb target id %s",
                             htm_target_id, device['target_id_usb_id'])
             device['target_id'] = htm_target_id
         else:
-            logging.warning("No target ID found inside of the redirect URL in"
+            logger.warning("No target ID found inside of the redirect URL in"
                             " file %s. Falling back to usb id %s",
                             join(mount_point, self.MBED_HTM_NAME),
                             device['target_id_usb_id'])
@@ -391,10 +394,10 @@ class MbedLsToolsBase(object):
                 try:
                     return json.load(data_file)
                 except ValueError as json_error_msg:
-                    logging.error("Parsing file(%s): %s", json_spec_filename, json_error_msg)
+                    logger.error("Parsing file(%s): %s", json_spec_filename, json_error_msg)
                     return None
         except IOError as fileopen_error_msg:
-            logging.warning(fileopen_error_msg)
+            logger.warning(fileopen_error_msg)
             return None
 
     @deprecated("This method will be removed from the public API. "
