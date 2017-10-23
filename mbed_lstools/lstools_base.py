@@ -210,8 +210,9 @@ class MbedLsToolsBase(object):
                             htm_target_id, device['target_id_usb_id'])
             device['target_id'] = htm_target_id
         else:
-            logging.warning("Could not read htm on from usb id %s. "
-                            "Falling back to usb id",
+            logging.warning("No target ID found inside of the redirect URL in"
+                            " file %s. Falling back to usb id %s",
+                            join(mount_point, self.MBED_HTM_NAME),
                             device['target_id_usb_id'])
             device['target_id'] = device['target_id_usb_id']
         device['target_id_mbed_htm'] = htm_target_id
@@ -467,7 +468,7 @@ class MbedLsToolsBase(object):
                 with open(mbed_htm_path, 'r') as f:
                     return f.readlines()
             except IOError:
-                logger.debug('Failed to open file %s', mbed_htm_path)
+                logger.warn('Failed to open file %s', mbed_htm_path)
         return []
 
     @deprecated("This method will be removed from the public API. "
