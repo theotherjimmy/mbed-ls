@@ -94,7 +94,14 @@ def print_version(mbeds, args):
     print(get_version())
 
 def print_mbeds(mbeds, args, simple):
-    devices = mbeds.list_mbeds(unique_names=True, read_details_txt=True)
+    candidates = mbeds.list_mbeds(unique_names=True, read_details_txt=True)
+    devices = []
+    for d in candidates:
+        if d['warnings']:
+            print("mbedls encountered problems with device %s: %s" %
+                  (d['target_id'], ", ".join(w.value for w in d['warnings'])))
+        if d['mount_point'] or args.list_unmounted:
+            devices.append(d)
     if devices:
         from prettytable import PrettyTable
         columns = ['platform_name', 'platform_name_unique', 'mount_point',
@@ -134,25 +141,29 @@ def list_platforms(mbeds, args):
 def mbeds_as_json(mbeds, args):
     print(json.dumps(mbeds.list_mbeds(unique_names=True,
                                       read_details_txt=True),
-                     indent=4, sort_keys=True))
+                     indent=4, sort_keys=True,
+                     default=lambda o: str(o)))
 
 def json_by_target_id(mbeds, args):
     print(json.dumps({m['target_id']: m for m
                       in mbeds.list_mbeds(unique_names=True,
                                           read_details_txt=True)},
-                     indent=4, sort_keys=True))
+                     indent=4, sort_keys=True,
+                     default=lambda o: str(o)))
 
 def json_platforms(mbeds, args):
     platforms = set()
     for d in mbeds.list_mbeds():
         platforms |= set([d['platform_name']])
-    print(json.dumps(list(platforms), indent=4, sort_keys=True))
+    print(json.dumps(list(platforms), indent=4, sort_keys=True,
+                     default=lambda o: str(o)))
 
 def json_platforms_ext(mbeds, args):
     platforms = defaultdict(lambda: 0)
     for d in mbeds.list_mbeds():
         platforms[d['platform_name']] += 1
-    print(json.dumps(platforms, indent=4, sort_keys=True))
+    print(json.dumps(platforms, indent=4, sort_keys=True,
+                     default=lambda o: str(o)))
 
 def parse_cli(to_parse):
     """! Parse the command line

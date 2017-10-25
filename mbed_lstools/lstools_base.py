@@ -29,10 +29,14 @@ from abc import ABCMeta, abstractmethod
 
 from .platform_database import PlatformDatabase, LOCAL_PLATFORM_DATABASE, \
     LOCAL_MOCKS_DATABASE
+from .warnings import Warnings, warn
+
+import logging
 mbedls_root_logger = logging.getLogger("mbedls")
 mbedls_root_logger.setLevel(logging.WARNING)
 
 logger = logging.getLogger("mbedls.lstools_base")
+del logging
 
 def deprecated(reason):
     """Deprecate a function/method with a decorator"""
@@ -131,38 +135,38 @@ class MbedLsToolsBase(object):
         platform_name_matcher = re.compile("|".join("({})".format(pf) for pf
                                                     in platform_name_filters))
         for device in candidates:
-            if  ((not device['mount_point'] or
-                  not self.mount_point_ready(device['mount_point'])) and
-                 not self.list_unmounted):
-                if  (device['target_id_usb_id'] and device['serial_port']):
-                    logger.warning(
-                        "MBED with target id '%s' is connected, but not mounted. "
-                        "Use the '-u' flag to include it in the list.",
-                        device['target_id_usb_id'])
-            else:
-                maybe_device = {
-                    FSInteraction.BeforeFilter: self._fs_before_id_check,
-                    FSInteraction.AfterFilter: self._fs_after_id_check,
-                    FSInteraction.Never: self._fs_never
-                }[fs_interaction](device, platform_name_matcher)
-                if maybe_device:
-                    if unique_names:
-                        name = device['platform_name']
-                        platform_count.setdefault(name, -1)
-                        platform_count[name] += 1
-                        device['platform_name_unique'] = (
-                            "%s[%d]" % (name, platform_count[name]))
-                    if read_details_txt:
+            device["warnings"] = []
+            if  (not device['mount_point'] or
+                 not self.mount_point_ready(device['mount_point'])):
+                warn(device, Warnings.NoMountPoint)
+            maybe_device = {
+                FSInteraction.BeforeFilter: self._fs_before_id_check,
+                FSInteraction.AfterFilter: self._fs_after_id_check,
+                FSInteraction.Never: self._fs_never
+            }[fs_interaction](device, platform_name_matcher)
+            if maybe_device:
+                if unique_names:
+                    name = device['platform_name']
+                    if not name:
+                        warn(device, Warnings.PlatformNotFound)
+                    platform_count.setdefault(name, -1)
+                    platform_count[name] += 1
+                    device['platform_name_unique'] = (
+                        "%s[%d]" % (name, platform_count[name]))
+                if read_details_txt:
+                    try:
                         details_txt = self._details_txt(device['mount_point']) or {}
                         device.update({"daplink_%s" % f.lower().replace(' ', '_'): v
                                        for f, v in details_txt.items()})
-                    try:
-                        device.update(self.retarget_data[device['target_id']])
-                        logger.debug("retargeting %s to %s",
-                                     device['target_id'], mbeds[i])
-                    except KeyError:
-                        pass
-                    result.append(maybe_device)
+                    except IOError:
+                        warn(device, Warnings.NoDeviceTxt)
+                try:
+                    device.update(self.retarget_data[device['target_id']])
+                    logger.debug("retargeting %s to %s",
+                                    device['target_id'], mbeds[i])
+                except KeyError:
+                    pass
+                result.append(maybe_device)
 
         return result
 
@@ -201,18 +205,21 @@ class MbedLsToolsBase(object):
         """Set the 'target_id', 'target_id_mbed_htm', 'platform_name' and
         'daplink_*' attributes by reading from mbed.htm on the device
         """
-        htm_target_id, daplink_info = self._read_htm_ids(device['mount_point'])
+        htm_target_id, daplink_info = None, None
+        if device['mount_point']:
+            try:
+                htm_target_id, daplink_info = self._read_htm_ids(device['mount_point'])
+            except IOError:
+                warn(device, Warnings.NoHtmFile)
         if daplink_info:
             device.update({"daplink_%s" % f.lower().replace(' ', '_'): v
                            for f, v in daplink_info.items()})
         if htm_target_id:
-            logging.debug("Found htm target id, %s, for usb target id %s",
-                            htm_target_id, device['target_id_usb_id'])
+            logger.debug("Found htm target id, %s, for usb target id %s",
+                         htm_target_id, device['target_id_usb_id'])
             device['target_id'] = htm_target_id
         else:
-            logging.warning("Could not read htm on from usb id %s. "
-                            "Falling back to usb id",
-                            device['target_id_usb_id'])
+            warn(device, Warnings.NoHtmId)
             device['target_id'] = device['target_id_usb_id']
         device['target_id_mbed_htm'] = htm_target_id
         device['platform_name'] = self.plat_db.get(device['target_id'][0:4])
@@ -390,10 +397,9 @@ class MbedLsToolsBase(object):
                 try:
                     return json.load(data_file)
                 except ValueError as json_error_msg:
-                    logging.error("Parsing file(%s): %s", json_spec_filename, json_error_msg)
+                    logger.error("Parsing file(%s): %s", json_spec_filename, json_error_msg)
                     return None
         except IOError as fileopen_error_msg:
-            logging.warning(fileopen_error_msg)
             return None
 
     @deprecated("This method will be removed from the public API. "
@@ -463,11 +469,8 @@ class MbedLsToolsBase(object):
     def _htm_lines(self, mount_point):
         if mount_point:
             mbed_htm_path = join(mount_point, self.MBED_HTM_NAME)
-            try:
-                with open(mbed_htm_path, 'r') as f:
-                    return f.readlines()
-            except IOError:
-                logger.debug('Failed to open file %s', mbed_htm_path)
+            with open(mbed_htm_path, 'r') as f:
+                return f.readlines()
         return []
 
     @deprecated("This method will be removed from the public API. "
@@ -499,11 +502,8 @@ class MbedLsToolsBase(object):
         """
         if mount_point:
             path_to_details_txt = os.path.join(mount_point, self.DETAILS_TXT_NAME)
-            try:
-                with open(path_to_details_txt, 'r') as f:
-                    return self._parse_details(f.readlines())
-            except IOError as e:
-                logger.debug('Failed to open file %s: %s', path_to_details_txt, str(e))
+            with open(path_to_details_txt, 'r') as f:
+                return self._parse_details(f.readlines())
         return None
 
     @deprecated("This method will be removed from the public API. "
