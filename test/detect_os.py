@@ -19,8 +19,6 @@ limitations under the License.
 import unittest
 import os
 import sys
-import errno
-import logging
 
 import platform
 from mbed_lstools.main import create
@@ -48,18 +46,20 @@ class DetectOSTestCase(unittest.TestCase):
         self.assertNotEqual(None, create())
 
     def test_supported_os_name(self):
-        os_names = ['Windows7', 'Ubuntu', 'LinuxGeneric', 'Darwin']
+        os_names = ["Windows7", "Ubuntu", "LinuxGeneric", "Darwin"]
         self.assertIn(mbed_os_support(), os_names)
 
     def test_detect_os_support_ext(self):
-        os_info = (os.name,
-                   platform.system(),
-                   platform.release(),
-                   platform.version(),
-                   sys.platform)
+        os_info = (
+            os.name,
+            platform.system(),
+            platform.release(),
+            platform.version(),
+            sys.platform,
+        )
 
         self.assertEqual(os_info, mbed_lstools_os_info())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
