@@ -13,9 +13,8 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-"""
 
-"""! @package mbed-ls
+! @package mbed-ls
 
 mbed-ls package is a set of tools inherited from mbed-lmtools used to detect
 mbed enabled devices on host (Windows, Linux and MacOS).
@@ -34,5 +33,12 @@ but it's already delivered as part of the mbed SDK's test suite and a command
 line tool (see below).
 """
 
-from .main import mbedls_main
-from .main import create
+# These are imported as internal so that we can change their name in their own module
+# and change these import statements without a breaking change
+from .main import mbedls_main as _mbedls_main
+from .main import create as _create
+
+
+# removes F401: unused imports in flake8, which is actually the purpose here
+mbedls_main = _mbedls_main
+create = _create
