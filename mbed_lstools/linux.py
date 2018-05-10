@@ -22,9 +22,11 @@ import os
 from .lstools_base import MbedLsToolsBase
 
 import logging
+
 logger = logging.getLogger("mbedls.lstools_linux")
 logger.addHandler(logging.NullHandler())
 del logging
+
 
 def _readlink(link):
     content = os.readlink(link)
@@ -37,27 +39,25 @@ def _readlink(link):
 class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
     """ mbed-enabled platform for Linux with udev
     """
+
     def __init__(self, **kwargs):
-        """! ctor
-        """
         MbedLsToolsBase.__init__(self, **kwargs)
-        self.nlp = re.compile(
-            r'(pci|usb)-[0-9a-zA-Z_-]*_(?P<usbid>[0-9a-zA-Z]*)-.*$')
-        self.mmp = re.compile(
-            r'(?P<dev>(/[^/ ]*)+) on (?P<dir>(/[^/ ]*)+) ')
+        self.nlp = re.compile(r"(pci|usb)-[0-9a-zA-Z_-]*_(?P<usbid>[0-9a-zA-Z]*)-.*$")
+        self.mmp = re.compile(r"(?P<dev>(/[^/ ]*)+) on (?P<dir>(/[^/ ]*)+) ")
 
     def find_candidates(self):
-        disk_ids = self._dev_by_id('disk')
-        serial_ids = self._dev_by_id('serial')
+        disk_ids = self._dev_by_id("disk")
+        serial_ids = self._dev_by_id("serial")
         mount_ids = dict(self._fat_mounts())
         logger.debug("Mount mapping %r", mount_ids)
 
         return [
             {
-                'mount_point' : mount_ids.get(disk_dev),
-                'serial_port' : serial_ids.get(disk_uuid),
-                'target_id_usb_id' : disk_uuid
-            } for disk_uuid, disk_dev in disk_ids.items()
+                "mount_point": mount_ids.get(disk_dev),
+                "serial_port": serial_ids.get(disk_uuid),
+                "target_id_usb_id": disk_uuid,
+            }
+            for disk_uuid, disk_dev in disk_ids.items()
         ]
 
     def _dev_by_id(self, device_type):
@@ -72,11 +72,15 @@ class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
             logger.debug("Found %s devices by id %r", device_type, to_ret)
             return to_ret
         else:
-            logger.error("Could not get %s devices by id. "
-                         "This could be because your Linux distribution "
-                         "does not use udev, or does not create /dev/%s/by-id "
-                         "symlinks. Please submit an issue to github.com/"
-                         "armmbed/mbed-ls.", device_type, device_type)
+            logger.error(
+                "Could not get %s devices by id. "
+                "This could be because your Linux distribution "
+                "does not use udev, or does not create /dev/%s/by-id "
+                "symlinks. Please submit an issue to github.com/"
+                "armmbed/mbed-ls.",
+                device_type,
+                device_type,
+            )
             return {}
 
     def _fat_mounts(self):
@@ -84,11 +88,11 @@ class MbedLsToolsLinuxGeneric(MbedLsToolsBase):
         @result Returns list of all mounted vfat devices
         @details Uses Linux shell command: 'mount'
         """
-        _stdout, _, retval = self._run_cli_process('mount')
+        _stdout, _, retval = self._run_cli_process("mount")
         if not retval:
             for line in _stdout.splitlines():
-                if b'vfat' in line:
-                    match = self.mmp.search(line.decode('utf-8'))
+                if b"vfat" in line:
+                    match = self.mmp.search(line.decode("utf-8"))
                     if match:
                         yield match.group("dev"), match.group("dir")
 
