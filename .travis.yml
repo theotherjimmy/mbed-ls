@@ -8,8 +8,11 @@ install:
   - pip install coverage
   - pip install coveralls
   - pip install prettytable
+  - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then pip install flake8; fi
 
-script: coverage run setup.py test
+script:
+  - if [[ $TRAVIS_PYTHON_VERSION == '3.6' ]]; then flake8; fi
+  - coverage run setup.py test
 
 after_success:
   - coverage html
