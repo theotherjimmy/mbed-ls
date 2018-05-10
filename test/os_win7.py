@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
+# flake: noqa: E402
 """
 mbed SDK
 Copyright (c) 2011-2015 ARM Limited
@@ -19,18 +20,25 @@ limitations under the License.
 
 import unittest
 import sys
-import os
 from mock import MagicMock, patch, call
 
 # Mock the winreg and _winreg module for non-windows python
 _winreg = MagicMock()
-sys.modules['_winreg']  = _winreg
-sys.modules['winreg'] = _winreg
+sys.modules["_winreg"] = _winreg
+sys.modules["winreg"] = _winreg
 
-from mbed_lstools.windows import (MbedLsToolsWin7, CompatibleIDsNotFoundException,
-    _get_cached_mounted_points, _is_mbed_volume, _get_values_with_numeric_keys,
-    _get_disks, _get_usb_storage_devices, _determine_valid_non_composite_devices,
-    _determine_subdevice_capability)
+from mbed_lstools.windows import (
+    MbedLsToolsWin7,
+    CompatibleIDsNotFoundException,
+    _get_cached_mounted_points,
+    _is_mbed_volume,
+    _get_values_with_numeric_keys,
+    _get_disks,
+    _get_usb_storage_devices,
+    _determine_valid_non_composite_devices,
+    _determine_subdevice_capability,
+)
+
 
 class Win7TestCase(unittest.TestCase):
     """ Basic test cases checking trivial asserts
@@ -39,6 +47,7 @@ class Win7TestCase(unittest.TestCase):
     def setUp(self):
         self.lstool = MbedLsToolsWin7()
         import logging
+
         logging.basicConfig()
         root_logger = logging.getLogger("mbedls")
         root_logger.setLevel(logging.DEBUG)
@@ -68,20 +77,33 @@ class Win7TestCase(unittest.TestCase):
 
     def test_empty_reg(self):
         value_dict = {
-            (None, 'SYSTEM\\MountedDevices'): [
-                ('\\DosDevices\\F:',
-                u'_??_USBSTOR#Disk&Ven_MBED&Prod_VFS&Rev_0.1#9&215b8c47&0&0240000032044e4500257009997b00386781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}'.encode('utf-16le')),
+            (None, "SYSTEM\\MountedDevices"): [
+                (
+                    "\\DosDevices\\F:",
+                    u"_??_USBSTOR#Disk&Ven_MBED&Prod_VFS&Rev_0.1#9&215b8c47&0&0240000032044e4500257009997b00386781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}".encode(
+                        "utf-16le"
+                    ),
+                )
             ],
-            (None, 'SYSTEM\\CurrentControlSet\\Services\\volume\\Enum'): [],
-            (None, 'SYSTEM\\CurrentControlSet\\Services\\USBSTOR\\Enum'): []
+            (None, "SYSTEM\\CurrentControlSet\\Services\\volume\\Enum"): [],
+            (None, "SYSTEM\\CurrentControlSet\\Services\\USBSTOR\\Enum"): [],
         }
         self.setUpRegistry(value_dict, {})
         candidates = self.lstool.find_candidates()
-        self.assertEqual(_winreg.OpenKey.mock_calls, [
-            call(_winreg.HKEY_LOCAL_MACHINE, 'SYSTEM\\MountedDevices'),
-            call(_winreg.HKEY_LOCAL_MACHINE, 'SYSTEM\\CurrentControlSet\\Services\\Disk\\Enum'),
-            call(_winreg.HKEY_LOCAL_MACHINE, 'SYSTEM\\CurrentControlSet\\Services\\USBSTOR\\Enum')
-        ])
+        self.assertEqual(
+            _winreg.OpenKey.mock_calls,
+            [
+                call(_winreg.HKEY_LOCAL_MACHINE, "SYSTEM\\MountedDevices"),
+                call(
+                    _winreg.HKEY_LOCAL_MACHINE,
+                    "SYSTEM\\CurrentControlSet\\Services\\Disk\\Enum",
+                ),
+                call(
+                    _winreg.HKEY_LOCAL_MACHINE,
+                    "SYSTEM\\CurrentControlSet\\Services\\USBSTOR\\Enum",
+                ),
+            ],
+        )
         self.assertEqual(candidates, [])
 
     def assertNoRegMut(self):
@@ -97,44 +119,50 @@ class Win7TestCase(unittest.TestCase):
 
     def setUpRegistry(self, value_dict, key_dict):
         all_keys = set(value_dict.keys()) | set(key_dict.keys())
+
         def open_key_effect(key, subkey):
-            if ((key, subkey) in all_keys or key in all_keys):
+            if (key, subkey) in all_keys or key in all_keys:
                 return key, subkey
             else:
                 raise OSError((key, subkey))
+
         _winreg.OpenKey.side_effect = open_key_effect
+
         def enum_value(key, index):
             try:
                 a, b = value_dict[key][index]
                 return a, b, None
             except KeyError:
                 raise OSError
+
         _winreg.EnumValue.side_effect = enum_value
+
         def enum_key(key, index):
             try:
                 return key_dict[key][index]
             except KeyError:
                 raise OSError
+
         _winreg.EnumKey.side_effect = enum_key
+
         def query_value(key, subkey):
             try:
                 return value_dict[(key, subkey)]
             except KeyError:
                 raise OSError
+
         _winreg.QueryValueEx.side_effect = query_value
+
         def query_info_key(key):
-            return (len(key_dict.get(key, [])),
-                    len(value_dict.get(key, [])))
+            return (len(key_dict.get(key, [])), len(value_dict.get(key, [])))
+
         _winreg.QueryInfoKey.side_effect = query_info_key
 
     def test_get_values_with_numeric_keys(self):
-        dummy_key = 'dummy_key'
-        with patch('mbed_lstools.windows._iter_vals') as _iter_vals:
+        dummy_key = "dummy_key"
+        with patch("mbed_lstools.windows._iter_vals") as _iter_vals:
             _iter_vals.return_value = [
-                ('0', True),
-                ('1', True),
-                ('Count', False),
-                ('NextInstance', False),
+                ("0", True), ("1", True), ("Count", False), ("NextInstance", False)
             ]
 
             values = _get_values_with_numeric_keys(dummy_key)
@@ -148,64 +176,77 @@ class Win7TestCase(unittest.TestCase):
             self.assertEqual(_get_values_with_numeric_keys(dummy_key), [])
 
     def test_is_mbed_volume(self):
-        self.assertTrue(_is_mbed_volume(u'_??_USBSTOR#Disk&Ven_MBED&Prod_VFS&Rev_0.1#0240000032044e4500367009997b00086781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}'))
-        self.assertTrue(_is_mbed_volume(u'_??_USBSTOR#Disk&Ven_mbed&Prod_VFS&Rev_0.1#0240000032044e4500367009997b00086781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}'))
-        self.assertFalse(_is_mbed_volume(u'_??_USBSTOR#Disk&Ven_Invalid&Prod_VFS&Rev_0.1#0240000032044e4500367009997b00086781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}'))
-        self.assertFalse(_is_mbed_volume(u'_??_USBSTOR#Disk&Ven_invalid&Prod_VFS&Rev_0.1#0240000032044e4500367009997b00086781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}'))
+        self.assertTrue(
+            _is_mbed_volume(
+                u"_??_USBSTOR#Disk&Ven_MBED&Prod_VFS&Rev_0.1#0240000032044e4500367009997b00086781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}"
+            )
+        )
+        self.assertTrue(
+            _is_mbed_volume(
+                u"_??_USBSTOR#Disk&Ven_mbed&Prod_VFS&Rev_0.1#0240000032044e4500367009997b00086781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}"
+            )
+        )
+        self.assertFalse(
+            _is_mbed_volume(
+                u"_??_USBSTOR#Disk&Ven_Invalid&Prod_VFS&Rev_0.1#0240000032044e4500367009997b00086781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}"
+            )
+        )
+        self.assertFalse(
+            _is_mbed_volume(
+                u"_??_USBSTOR#Disk&Ven_invalid&Prod_VFS&Rev_0.1#0240000032044e4500367009997b00086781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}"
+            )
+        )
 
     def test_get_cached_mount_points(self):
-        dummy_val = 'dummy_val'
-        volume_string_1 = u'_??_USBSTOR#Disk&Ven_MBED&Prod_VFS&Rev_0.1#0240000032044e4500367009997b00086781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}'
-        volume_string_2 = u'_??_USBSTOR#Disk&Ven_MBED&Prod_VFS&Rev_0.1#1234000032044e4500367009997b00086781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}'
-        with patch('mbed_lstools.windows._iter_vals') as _iter_vals, \
-             patch('mbed_lstools.windows._is_mbed_volume') as _is_mbed_volume:
+        dummy_val = "dummy_val"
+        volume_string_1 = u"_??_USBSTOR#Disk&Ven_MBED&Prod_VFS&Rev_0.1#0240000032044e4500367009997b00086781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}"
+        volume_string_2 = u"_??_USBSTOR#Disk&Ven_MBED&Prod_VFS&Rev_0.1#1234000032044e4500367009997b00086781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}"
+        with patch("mbed_lstools.windows._iter_vals") as _iter_vals, patch(
+            "mbed_lstools.windows._is_mbed_volume"
+        ) as _is_mbed_volume:
             _winreg.OpenKey.return_value = dummy_val
             _iter_vals.return_value = [
-                ('dummy_device', 'this is not a valid volume string'),
-                ('\\DosDevices\\D:',
-                 volume_string_1.encode('utf-16le')),
-                ('\\DosDevices\\invalid_drive',
-                 volume_string_2.encode('utf-16le'))
+                ("dummy_device", "this is not a valid volume string"),
+                ("\\DosDevices\\D:", volume_string_1.encode("utf-16le")),
+                ("\\DosDevices\\invalid_drive", volume_string_2.encode("utf-16le")),
             ]
             _is_mbed_volume.return_value = True
 
             result = _get_cached_mounted_points()
 
-            _winreg.OpenKey.assert_called_once_with(_winreg.HKEY_LOCAL_MACHINE,
-                                                    'SYSTEM\\MountedDevices')
+            _winreg.OpenKey.assert_called_once_with(
+                _winreg.HKEY_LOCAL_MACHINE, "SYSTEM\\MountedDevices"
+            )
             _iter_vals.assert_called_once_with(dummy_val)
-            _is_mbed_volume.assert_has_calls([
-                call(volume_string_1),
-                call(volume_string_2)
-            ])
-            self.assertEqual(result, [
-                {
-                    'mount_point': 'D:',
-                    'volume_string': volume_string_1
-                }
-            ])
+            _is_mbed_volume.assert_has_calls(
+                [call(volume_string_1), call(volume_string_2)]
+            )
+            self.assertEqual(
+                result, [{"mount_point": "D:", "volume_string": volume_string_1}]
+            )
 
             _winreg.OpenKey.reset_mock()
             _winreg.OpenKey.side_effect = OSError
             self.assertEqual(_get_cached_mounted_points(), [])
 
-
     def test_get_disks(self):
-        dummy_key = 'dummy_key'
-        volume_strings = [
-            'dummy_volume_1',
-            'dummy_volume_2',
-        ]
-        with patch('mbed_lstools.windows._get_values_with_numeric_keys') as _num_keys, \
-             patch('mbed_lstools.windows._is_mbed_volume') as _is_mbed_volume:
+        dummy_key = "dummy_key"
+        volume_strings = ["dummy_volume_1", "dummy_volume_2"]
+        with patch(
+            "mbed_lstools.windows._get_values_with_numeric_keys"
+        ) as _num_keys, patch(
+            "mbed_lstools.windows._is_mbed_volume"
+        ) as _is_mbed_volume:
             _winreg.OpenKey.return_value = dummy_key
             _num_keys.return_value = volume_strings
             _is_mbed_volume.return_value = True
 
             result = _get_disks()
 
-            _winreg.OpenKey.assert_called_once_with(_winreg.HKEY_LOCAL_MACHINE,
-                                                    'SYSTEM\\CurrentControlSet\\Services\\Disk\\Enum')
+            _winreg.OpenKey.assert_called_once_with(
+                _winreg.HKEY_LOCAL_MACHINE,
+                "SYSTEM\\CurrentControlSet\\Services\\Disk\\Enum",
+            )
             _num_keys.assert_called_once_with(dummy_key)
             self.assertEqual(result, volume_strings)
 
@@ -215,27 +256,31 @@ class Win7TestCase(unittest.TestCase):
 
             result = _get_disks()
 
-            _winreg.OpenKey.assert_called_once_with(_winreg.HKEY_LOCAL_MACHINE,
-                                                    'SYSTEM\\CurrentControlSet\\Services\\Disk\\Enum')
+            _winreg.OpenKey.assert_called_once_with(
+                _winreg.HKEY_LOCAL_MACHINE,
+                "SYSTEM\\CurrentControlSet\\Services\\Disk\\Enum",
+            )
             _num_keys.assert_not_called()
             self.assertEqual(result, [])
 
     def test_get_usb_storage_devices(self):
-        dummy_key = 'dummy_key'
-        volume_strings = [
-            'dummy_usb_storage_1',
-            'dummy_usb_storage_2',
-        ]
-        with patch('mbed_lstools.windows._get_values_with_numeric_keys') as _num_keys, \
-             patch('mbed_lstools.windows._is_mbed_volume') as _is_mbed_volume:
+        dummy_key = "dummy_key"
+        volume_strings = ["dummy_usb_storage_1", "dummy_usb_storage_2"]
+        with patch(
+            "mbed_lstools.windows._get_values_with_numeric_keys"
+        ) as _num_keys, patch(
+            "mbed_lstools.windows._is_mbed_volume"
+        ) as _is_mbed_volume:
             _winreg.OpenKey.return_value = dummy_key
             _num_keys.return_value = volume_strings
             _is_mbed_volume.return_value = True
 
             result = _get_usb_storage_devices()
 
-            _winreg.OpenKey.assert_called_once_with(_winreg.HKEY_LOCAL_MACHINE,
-                                                    'SYSTEM\\CurrentControlSet\\Services\\USBSTOR\\Enum')
+            _winreg.OpenKey.assert_called_once_with(
+                _winreg.HKEY_LOCAL_MACHINE,
+                "SYSTEM\\CurrentControlSet\\Services\\USBSTOR\\Enum",
+            )
             _num_keys.assert_called_once_with(dummy_key)
             self.assertEqual(result, volume_strings)
 
@@ -245,85 +290,88 @@ class Win7TestCase(unittest.TestCase):
 
             result = _get_usb_storage_devices()
 
-            _winreg.OpenKey.assert_called_once_with(_winreg.HKEY_LOCAL_MACHINE,
-                                                    'SYSTEM\\CurrentControlSet\\Services\\USBSTOR\\Enum')
+            _winreg.OpenKey.assert_called_once_with(
+                _winreg.HKEY_LOCAL_MACHINE,
+                "SYSTEM\\CurrentControlSet\\Services\\USBSTOR\\Enum",
+            )
             _num_keys.assert_not_called()
             self.assertEqual(result, [])
 
     def test_determine_valid_non_composite_devices(self):
-        dummy_full_path = 'dummy_full_path'
-        dummy_target_id = 'dummy_target_id'
-        dummy_mount_point = 'dummy_mount_point'
-        devices = [
-            {
-                'full_path': dummy_full_path,
-                'entry_key_string': dummy_target_id
-            }
-        ]
-        target_id_usb_id_mount_point_map = {
-            dummy_target_id: dummy_mount_point
-        }
-        dummy_key = 'dummy_key'
+        dummy_full_path = "dummy_full_path"
+        dummy_target_id = "dummy_target_id"
+        dummy_mount_point = "dummy_mount_point"
+        devices = [{"full_path": dummy_full_path, "entry_key_string": dummy_target_id}]
+        target_id_usb_id_mount_point_map = {dummy_target_id: dummy_mount_point}
+        dummy_key = "dummy_key"
 
         _winreg.OpenKey.return_value = dummy_key
 
-        with patch('mbed_lstools.windows._determine_subdevice_capability') as _capability:
-            _capability.return_value = 'msd'
+        with patch(
+            "mbed_lstools.windows._determine_subdevice_capability"
+        ) as _capability:
+            _capability.return_value = "msd"
 
-            result = _determine_valid_non_composite_devices(devices, target_id_usb_id_mount_point_map)
+            result = _determine_valid_non_composite_devices(
+                devices, target_id_usb_id_mount_point_map
+            )
 
-            device_key_string = 'SYSTEM\\CurrentControlSet\\Enum\\' + dummy_full_path
-            _winreg.OpenKey.assert_called_once_with(_winreg.HKEY_LOCAL_MACHINE,
-                                                    device_key_string)
+            device_key_string = "SYSTEM\\CurrentControlSet\\Enum\\" + dummy_full_path
+            _winreg.OpenKey.assert_called_once_with(
+                _winreg.HKEY_LOCAL_MACHINE, device_key_string
+            )
             _capability.assert_called_once_with(dummy_key)
-            self.assertEqual(result, {
-                dummy_target_id: {
-                    'target_id_usb_id': dummy_target_id,
-                    'mount_point': dummy_mount_point
-                }
-            })
+            self.assertEqual(
+                result,
+                {
+                    dummy_target_id: {
+                        "target_id_usb_id": dummy_target_id,
+                        "mount_point": dummy_mount_point,
+                    }
+                },
+            )
 
     def test_determine_subdevice_capability(self):
-        dummy_key = 'dummy_key'
+        dummy_key = "dummy_key"
 
         _winreg.QueryValueEx.return_value = (
             [
-                u'USB\\DevClass_00&SubClass_00&Prot_00',
-                u'USB\\DevClass_00&SubClass_00',
-                u'USB\\DevClass_00',
-                u'USB\\COMPOSITE'
+                u"USB\\DevClass_00&SubClass_00&Prot_00",
+                u"USB\\DevClass_00&SubClass_00",
+                u"USB\\DevClass_00",
+                u"USB\\COMPOSITE",
             ],
-            7
+            7,
         )
         capability = _determine_subdevice_capability(dummy_key)
-        _winreg.QueryValueEx.assert_called_once_with(dummy_key, 'CompatibleIDs')
-        self.assertEqual(capability, 'composite')
-
-        _winreg.QueryValueEx.reset_mock()
-        _winreg.QueryValueEx.return_value = (
-            [
-                u'USB\\Class_08&SubClass_06&Prot_50',
-                u'USB\\Class_08&SubClass_06',
-                u'USB\\Class_08'
-            ],
-            7
-        )
-        capability = _determine_subdevice_capability(dummy_key)
-        _winreg.QueryValueEx.assert_called_once_with(dummy_key, 'CompatibleIDs')
-        self.assertEqual(capability, 'msd')
+        _winreg.QueryValueEx.assert_called_once_with(dummy_key, "CompatibleIDs")
+        self.assertEqual(capability, "composite")
 
         _winreg.QueryValueEx.reset_mock()
         _winreg.QueryValueEx.return_value = (
             [
-                u'USB\\Class_02&SubClass_02&Prot_01',
-                u'USB\\Class_02&SubClass_02',
-                u'USB\\Class_02'
+                u"USB\\Class_08&SubClass_06&Prot_50",
+                u"USB\\Class_08&SubClass_06",
+                u"USB\\Class_08",
             ],
-            7
+            7,
         )
         capability = _determine_subdevice_capability(dummy_key)
-        _winreg.QueryValueEx.assert_called_once_with(dummy_key, 'CompatibleIDs')
-        self.assertEqual(capability, 'serial')
+        _winreg.QueryValueEx.assert_called_once_with(dummy_key, "CompatibleIDs")
+        self.assertEqual(capability, "msd")
+
+        _winreg.QueryValueEx.reset_mock()
+        _winreg.QueryValueEx.return_value = (
+            [
+                u"USB\\Class_02&SubClass_02&Prot_01",
+                u"USB\\Class_02&SubClass_02",
+                u"USB\\Class_02",
+            ],
+            7,
+        )
+        capability = _determine_subdevice_capability(dummy_key)
+        _winreg.QueryValueEx.assert_called_once_with(dummy_key, "CompatibleIDs")
+        self.assertEqual(capability, "serial")
 
         _winreg.QueryValueEx.reset_mock()
         _winreg.QueryValueEx.side_effect = OSError
@@ -333,55 +381,128 @@ class Win7TestCase(unittest.TestCase):
         except CompatibleIDsNotFoundException as e:
             exception = True
         self.assertTrue(exception)
-        _winreg.QueryValueEx.assert_called_once_with(dummy_key, 'CompatibleIDs')
-
+        _winreg.QueryValueEx.assert_called_once_with(dummy_key, "CompatibleIDs")
 
     def test_one_composite_dev(self):
         value_dict = {
-            (None, 'SYSTEM\\MountedDevices'): [
-                ('\\DosDevices\\C:', u'NOT A VALID MBED DRIVE'.encode('utf-16le')),
-                ('\\DosDevices\\F:',
-                 u'_??_USBSTOR#Disk&Ven_MBED&Prod_VFS&Rev_0.1#9&215b8c47&0&0240000032044e4500257009997b00386781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}'.encode('utf-16le'))
+            (None, "SYSTEM\\MountedDevices"): [
+                ("\\DosDevices\\C:", u"NOT A VALID MBED DRIVE".encode("utf-16le")),
+                (
+                    "\\DosDevices\\F:",
+                    u"_??_USBSTOR#Disk&Ven_MBED&Prod_VFS&Rev_0.1#9&215b8c47&0&0240000032044e4500257009997b00386781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}".encode(
+                        "utf-16le"
+                    ),
+                ),
             ],
-            (None, 'SYSTEM\\CurrentControlSet\\Services\\Disk\\Enum'): [
-                ('0', 'USBSTOR\\Disk&Ven_MBED&Prod_VFS&Rev_0.1\\9&215b8c47&0&0240000032044e4500257009997b00386781000097969900&0')
+            (None, "SYSTEM\\CurrentControlSet\\Services\\Disk\\Enum"): [
+                (
+                    "0",
+                    "USBSTOR\\Disk&Ven_MBED&Prod_VFS&Rev_0.1\\9&215b8c47&0&0240000032044e4500257009997b00386781000097969900&0",
+                )
             ],
-            (None, 'SYSTEM\\CurrentControlSet\\Services\\USBSTOR\\Enum'): [
-                ('0', 'USB\\VID_0D28&PID_0204&MI_00\\8&26b12a60&0&0000')
+            (None, "SYSTEM\\CurrentControlSet\\Services\\USBSTOR\\Enum"): [
+                ("0", "USB\\VID_0D28&PID_0204&MI_00\\8&26b12a60&0&0000")
             ],
-            (None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204'): [],
-            (((None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204'),
-                '0240000032044e4500257009997b00386781000097969900'),
-                'ParentIdPrefix'): ('8&26b12a60&0', None),
-            (((None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204'),
-                '0240000032044e4500257009997b00386781000097969900'),
-                'CompatibleIDs'): ([u'USB\\DevClass_00&SubClass_00&Prot_00', u'USB\\DevClass_00&SubClass_00', u'USB\\DevClass_00', u'USB\\COMPOSITE'], 7),
-            (((None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204&MI_00'), '8&26b12a60&0&0000'), 'CompatibleIDs'): ([u'USB\\Class_08&SubClass_06&Prot_50', u'USB\\Class_08&SubClass_06', u'USB\\Class_08'], 7),
-            (((None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204&MI_01'),
-                '8&26b12a60&0&0001'),
-                'CompatibleIDs'): ([u'USB\\CLASS_02&SUBCLASS_02&PROT_01', u'USB\\CLASS_02&SUBCLASS_02', u'USB\\CLASS_02'], 7),
-            ((((None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204&MI_01'),
-                '8&26b12a60&0&0001'),
-                'Device Parameters'),
-                'PortName'): ('COM7', None)
+            (None, "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204"): [],
+            (
+                (
+                    (None, "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204"),
+                    "0240000032044e4500257009997b00386781000097969900",
+                ),
+                "ParentIdPrefix",
+            ): (
+                "8&26b12a60&0", None
+            ),
+            (
+                (
+                    (None, "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204"),
+                    "0240000032044e4500257009997b00386781000097969900",
+                ),
+                "CompatibleIDs",
+            ): (
+                [
+                    u"USB\\DevClass_00&SubClass_00&Prot_00",
+                    u"USB\\DevClass_00&SubClass_00",
+                    u"USB\\DevClass_00",
+                    u"USB\\COMPOSITE",
+                ],
+                7,
+            ),
+            (
+                (
+                    (
+                        None,
+                        "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204&MI_00",
+                    ),
+                    "8&26b12a60&0&0000",
+                ),
+                "CompatibleIDs",
+            ): (
+                [
+                    u"USB\\Class_08&SubClass_06&Prot_50",
+                    u"USB\\Class_08&SubClass_06",
+                    u"USB\\Class_08",
+                ],
+                7,
+            ),
+            (
+                (
+                    (
+                        None,
+                        "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204&MI_01",
+                    ),
+                    "8&26b12a60&0&0001",
+                ),
+                "CompatibleIDs",
+            ): (
+                [
+                    u"USB\\CLASS_02&SUBCLASS_02&PROT_01",
+                    u"USB\\CLASS_02&SUBCLASS_02",
+                    u"USB\\CLASS_02",
+                ],
+                7,
+            ),
+            (
+                (
+                    (
+                        (
+                            None,
+                            "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204&MI_01",
+                        ),
+                        "8&26b12a60&0&0001",
+                    ),
+                    "Device Parameters",
+                ),
+                "PortName",
+            ): (
+                "COM7", None
+            ),
         }
         key_dict = {
-            (None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204'):
-            ['0240000032044e4500257009997b00386781000097969900'],
-            (None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204&MI_00'): [],
-            (None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204&MI_01'): [],
-            (((None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204&MI_01'),
-                '8&26b12a60&0&0001'),
-                'Device Parameters'): []
+            (None, "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204"): [
+                "0240000032044e4500257009997b00386781000097969900"
+            ],
+            (None, "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204&MI_00"): [],
+            (None, "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204&MI_01"): [],
+            (
+                (
+                    (
+                        None,
+                        "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204&MI_01",
+                    ),
+                    "8&26b12a60&0&0001",
+                ),
+                "Device Parameters",
+            ): [],
         }
         self.setUpRegistry(value_dict, key_dict)
 
-        with patch('mbed_lstools.windows.MbedLsToolsWin7._run_cli_process') as _cliproc:
+        with patch("mbed_lstools.windows.MbedLsToolsWin7._run_cli_process") as _cliproc:
             _cliproc.return_value = ("", "", 0)
             expected_info = {
-                'mount_point': 'F:',
-                'serial_port': 'COM7',
-                'target_id_usb_id': u'0240000032044e4500257009997b00386781000097969900'
+                "mount_point": "F:",
+                "serial_port": "COM7",
+                "target_id_usb_id": u"0240000032044e4500257009997b00386781000097969900",
             }
 
             devices = self.lstool.find_candidates()
@@ -390,34 +511,60 @@ class Win7TestCase(unittest.TestCase):
 
     def test_one_non_composite_dev(self):
         value_dict = {
-            (None, 'SYSTEM\\MountedDevices'): [
-                ('\\DosDevices\\C:', u'NOT A VALID MBED DRIVE'.encode('utf-16le')),
-                ('\\DosDevices\\F:',
-                 u'_??_USBSTOR#Disk&Ven_MBED&Prod_VFS&Rev_0.1#0000000032044e4500257009997b00386781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}'.encode('utf-16le'))
+            (None, "SYSTEM\\MountedDevices"): [
+                ("\\DosDevices\\C:", u"NOT A VALID MBED DRIVE".encode("utf-16le")),
+                (
+                    "\\DosDevices\\F:",
+                    u"_??_USBSTOR#Disk&Ven_MBED&Prod_VFS&Rev_0.1#0000000032044e4500257009997b00386781000097969900&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}".encode(
+                        "utf-16le"
+                    ),
+                ),
             ],
-            (None, 'SYSTEM\\CurrentControlSet\\Services\\Disk\\Enum'): [
-                ('0', 'USBSTOR\Disk&Ven_MBED&Prod_VFS&Rev_0.1\\0000000032044e4500257009997b00386781000097969900&0')
+            (None, "SYSTEM\\CurrentControlSet\\Services\\Disk\\Enum"): [
+                (
+                    "0",
+                    "USBSTOR\Disk&Ven_MBED&Prod_VFS&Rev_0.1\\0000000032044e4500257009997b00386781000097969900&0",
+                )
             ],
-            (None, 'SYSTEM\\CurrentControlSet\\Services\\USBSTOR\\Enum'): [
-                ('0', 'USB\\VID_0D28&PID_0204\\0000000032044e4500257009997b00386781000097969900')
+            (None, "SYSTEM\\CurrentControlSet\\Services\\USBSTOR\\Enum"): [
+                (
+                    "0",
+                    "USB\\VID_0D28&PID_0204\\0000000032044e4500257009997b00386781000097969900",
+                )
             ],
-            (None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204'): [],
-            ((None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204\\0000000032044e4500257009997b00386781000097969900'),
-                'CompatibleIDs'): ([u'USB\\Class_08&SubClass_06&Prot_50', u'USB\\Class_08&SubClass_06', u'USB\\Class_08'], 7)
+            (None, "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204"): [],
+            (
+                (
+                    None,
+                    "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204\\0000000032044e4500257009997b00386781000097969900",
+                ),
+                "CompatibleIDs",
+            ): (
+                [
+                    u"USB\\Class_08&SubClass_06&Prot_50",
+                    u"USB\\Class_08&SubClass_06",
+                    u"USB\\Class_08",
+                ],
+                7,
+            ),
         }
         key_dict = {
-            (None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204'):
-            ['0000000032044e4500257009997b00386781000097969900'],
-            (None, 'SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204\\0000000032044e4500257009997b00386781000097969900'): []
+            (None, "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204"): [
+                "0000000032044e4500257009997b00386781000097969900"
+            ],
+            (
+                None,
+                "SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0D28&PID_0204\\0000000032044e4500257009997b00386781000097969900",
+            ): [],
         }
         self.setUpRegistry(value_dict, key_dict)
 
-        with patch('mbed_lstools.windows.MbedLsToolsWin7._run_cli_process') as _cliproc:
+        with patch("mbed_lstools.windows.MbedLsToolsWin7._run_cli_process") as _cliproc:
             _cliproc.return_value = ("", "", 0)
             expected_info = {
-                'mount_point': 'F:',
-                'serial_port': None,
-                'target_id_usb_id': u'0000000032044e4500257009997b00386781000097969900'
+                "mount_point": "F:",
+                "serial_port": None,
+                "target_id_usb_id": u"0000000032044e4500257009997b00386781000097969900",
             }
 
             devices = self.lstool.find_candidates()
@@ -425,7 +572,7 @@ class Win7TestCase(unittest.TestCase):
             self.assertNoRegMut()
 
     def test_mount_point_ready(self):
-        with patch('mbed_lstools.windows.MbedLsToolsWin7._run_cli_process') as _cliproc:
+        with patch("mbed_lstools.windows.MbedLsToolsWin7._run_cli_process") as _cliproc:
             _cliproc.return_value = ("dummy", "", 0)
             self.assertTrue(self.lstool.mount_point_ready("dummy"))
 
@@ -435,5 +582,5 @@ class Win7TestCase(unittest.TestCase):
             self.assertFalse(self.lstool.mount_point_ready("dummy"))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
